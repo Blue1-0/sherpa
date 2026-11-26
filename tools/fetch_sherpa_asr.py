@@ -63,24 +63,37 @@ KWS_FILES = (
 
 # ---- TTS 模型（GitHub Release，经 ghproxy 镜像下载压缩包）----
 TTS_ROOT = ROOT / "tts_models"
-TTS_MODEL_NAME = "vits-melo-tts-zh_en"
+TTS_MODEL_NAME = "matcha-icefall-zh-en"
 TTS_DIR = TTS_ROOT / "models" / TTS_MODEL_NAME
 TTS_MANIFEST = TTS_ROOT / "manifest.json"
-TTS_ARCHIVE_NAME = "vits-melo-tts-zh_en.tar.bz2"
+TTS_ARCHIVE_NAME = "matcha-icefall-zh-en.tar.bz2"
 TTS_ARCHIVE = TTS_ROOT / "downloads" / TTS_ARCHIVE_NAME
 TTS_URLS = (
     f"https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/{TTS_ARCHIVE_NAME}",
     f"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/{TTS_ARCHIVE_NAME}",
 )
-TTS_ARCHIVE_SIZE = 167006755
-TTS_ARCHIVE_SHA = "e58351ed7149f290a54534538badd4077cdbe6fddc964b24d0bee870415d1514"
+TTS_ARCHIVE_SIZE = 79033838
+TTS_ARCHIVE_SHA = "271b804af570400d3bcdcb53bf6e53cc9f75180ee763b9f13eb5eaf2b0d086ef"
+
+# Matcha 需要额外声码器；英文发音词典随仓库入库（文本资源，非模型）。
+TTS_VOCODER_NAME = "vocos-16khz-univ.onnx"
+TTS_VOCODER_SIZE = 53882848
+TTS_VOCODER_SHA = "b599142a1fb8ff03de3e84ac35ff537c619e56f4267a6fe894851a42844acf9e"
+TTS_VOCODER_URLS = (
+    f"https://gh-proxy.com/https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/{TTS_VOCODER_NAME}",
+    f"https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/{TTS_VOCODER_NAME}",
+)
+TTS_EN_LEXICON = TTS_ROOT / "lexicon-en.txt"  # 入库的英文词典，部署时复制到模型目录
+
 TTS_FILES = (
-    "model.onnx",
+    "model-steps-3.onnx",
+    "vocos-16khz-univ.onnx",
     "lexicon.txt",
+    "lexicon-en.txt",
     "tokens.txt",
-    "date.fst",
-    "number.fst",
-    "phone.fst",
+    "date-zh.fst",
+    "number-zh.fst",
+    "phone-zh.fst",
 )
 
 
@@ -184,33 +197,48 @@ def fetch_kws(verify_only: bool) -> None:
     fetch_group(KWS_DIR, KWS_MANIFEST, KWS_FILES, lambda n: "", True)
 
 
+def _download_verified(urls: tuple[str, ...], target: Path, size: int, digest: str) -> None:
+    """带断点续传和 SHA-256 校验的单文件下载。"""
+    if target.is_file() and target.stat().st_size == size and sha256(target) == digest:
+        return
+    last = None
+    for url in urls:
+        try:
+            for _ in range(40):
+                cur = target.stat().st_size if target.exists() else 0
+                if cur == size and sha256(target) == digest:
+                    break
+                if cur > size:
+                    target.unlink()
+                    break
+                print(f"[download] {url} (已有 {cur / 1048576:.1f} MB)")
+                curl_download(url, target, max_time=600)
+            if target.stat().st_size == size and sha256(target) == digest:
+                return
+        except (subprocess.CalledProcessError, OSError) as exc:
+            last = exc
+            print(f"[retry] 镜像失败: {exc}")
+    raise RuntimeError(f"下载失败: {target.name} ({last})")
+
+
 def fetch_tts(verify_only: bool) -> None:
     if verify_only:
         fetch_group(TTS_DIR, TTS_MANIFEST, TTS_FILES, lambda n: "", True)
         return
     TTS_ARCHIVE.parent.mkdir(parents=True, exist_ok=True)
-    if not (TTS_ARCHIVE.is_file() and TTS_ARCHIVE.stat().st_size == TTS_ARCHIVE_SIZE
-            and sha256(TTS_ARCHIVE) == TTS_ARCHIVE_SHA):
-        last = None
-        for url in TTS_URLS:
-            try:
-                for _ in range(40):
-                    size = TTS_ARCHIVE.stat().st_size if TTS_ARCHIVE.exists() else 0
-                    if size == TTS_ARCHIVE_SIZE and sha256(TTS_ARCHIVE) == TTS_ARCHIVE_SHA:
-                        break
-                    if size > TTS_ARCHIVE_SIZE:
-                        TTS_ARCHIVE.unlink()
-                        break
-                    print(f"[download] {url} (已有 {size / 1048576:.1f} MB)")
-                    curl_download(url, TTS_ARCHIVE, max_time=600)
-                if TTS_ARCHIVE.stat().st_size == TTS_ARCHIVE_SIZE and sha256(TTS_ARCHIVE) == TTS_ARCHIVE_SHA:
-                    break
-            except (subprocess.CalledProcessError, OSError) as exc:
-                last = exc
-                print(f"[retry] 镜像失败: {exc}")
-        else:
-            raise RuntimeError(f"TTS 压缩包下载失败: {last}")
-    # 压缩包内是 vits-melo-tts-zh_en/，解压到 tts_models/models/ 下。
+    _download_verified(TTS_URLS, TTS_ARCHIVE, TTS_ARCHIVE_SIZE, TTS_ARCHIVE_SHA)
+
+    # 声码器不在 matcha 压缩包内，需要单独下载。
+    vocoder = TTS_DIR / TTS_VOCODER_NAME
+    vocoder.parent.mkdir(parents=True, exist_ok=True)
+    _download_verified(TTS_VOCODER_URLS, vocoder, TTS_VOCODER_SIZE, TTS_VOCODER_SHA)
+
+    # 英文发音词典随仓库入库，复制到模型目录与中文词典并列。
+    if not TTS_EN_LEXICON.is_file():
+        raise RuntimeError(f"缺少英文词典资源: {TTS_EN_LEXICON}")
+    shutil.copy(TTS_EN_LEXICON, TTS_DIR / "lexicon-en.txt")
+
+    # 压缩包内是 matcha-icefall-zh-en/，解压到 tts_models/models/ 下。
     extract_tar_bz2(TTS_ARCHIVE, TTS_DIR.parent)
     fetch_group(TTS_DIR, TTS_MANIFEST, TTS_FILES, lambda n: "", True)
 

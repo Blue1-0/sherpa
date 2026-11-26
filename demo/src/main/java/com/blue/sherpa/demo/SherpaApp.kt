@@ -51,6 +51,7 @@ object TtsBus {
     val relay = object : SherpaTts.Callback {
         override fun onState(state: SherpaTts.State) { listener?.onState(state) }
         override fun onReady() { listener?.onReady() }
+        override fun onFirstAudioLatency(latencyMs: Int) { listener?.onFirstAudioLatency(latencyMs) }
         override fun onStart(text: String, sampleRate: Int, durationMs: Int) {
             listener?.onStart(text, sampleRate, durationMs)
         }

@@ -8,7 +8,7 @@
 | 模块 | 说明 | 发布坐标 |
 | --- | --- | --- |
 | `lib_asr` | 中英双语流式识别（Zipformer int8）、麦克风采集、模型校验 | `com.github.Blue1-0.sherpa:lib-asr:1.0.0` |
-| `lib_tts` | 离线 TTS（vits-melo 中英双语）、AudioTrack 播放、外部模型目录 | `com.github.Blue1-0.sherpa:lib-tts:1.0.0` |
+| `lib_tts` | 离线 TTS（Matcha 中英双语、非自回归高速合成）、AudioTrack 播放、外部模型目录 | `com.github.Blue1-0.sherpa:lib-tts:1.0.0` |
 | `demo` | Compose 测试页：入口菜单两个按钮分别进入 ASR / TTS | 不发布 |
 
 引擎统一使用 `com.github.k2-fsa.sherpa-onnx:sherpa-onnx:2.0.1`（JitPack），
@@ -53,25 +53,33 @@ SherpaAsr.release()  // 释放引擎
 
 ### TTS（文字转语音）
 
-TTS 模型约 163MB，**首次进入 TTS 页面再 init**，不要放在 Application.onCreate，
-避免拖慢启动。`init` 是幂等的，重复调用只替换回调：
+默认用 Matcha 中英双语模型（约 130MB，含声码器），**首次进入 TTS 页面再 init**，
+不要放在 Application.onCreate，避免拖慢启动。`init` 是幂等的，重复调用只替换回调：
 
 ```kotlin
 SherpaTts.init(application, SherpaTts.Config(), object : SherpaTts.Callback {
     override fun onReady() { /* 模型就绪 */ }
+    override fun onFirstAudioLatency(ms: Int) { /* 点击 → 首句播放 的耗时 */ }
     override fun onStart(text: String, sampleRate: Int, durationMs: Int) { /* 开始播放 */ }
     override fun onComplete(text: String, frames: Int) { /* 播放完成 */ }
     override fun onError(message: String) { /* 失败原因 */ }
 })
 
-SherpaTts.synthesize("你好，小卓小卓")  // 合成并播放；再次调用会取消上一段
-SherpaTts.stop()                        // 停止播放，保留引擎
-SherpaTts.release()                     // 释放引擎
+SherpaTts.synthesize("你好，欢迎使用语音合成。Hello, this is offline TTS.") // 中英混读，按句流式输出
+SherpaTts.synthesize("你好", speed = 1.2f) // 语速加快
+SherpaTts.stop()                           // 停止播放，保留引擎
+SherpaTts.release()                        // 释放引擎
 ```
 
-`SherpaTts.Config` 可指定 `modelDir`、`numThreads`、`speakerId`、`speed`；
-默认 `vits-melo-tts-zh_en` 单 speaker，支持中英混合文本。可选 `ruleFsts`
-（`date.fst` / `number.fst` / `phone.fst`）改善数字、日期、电话的读法。
+`synthesize` 会按标点分句：第一句合成完就开始出声，后续句子在播放期间继续合成。
+耗时通过 `onFirstAudioLatency(ms)` 回调（同时用 `Log.d("SherpaTts", ...)` 打印）。
+
+**为什么用 Matcha**：非自回归、3 步解码，实测合成耗时约为 VITS 的 1/10
+（本机长句 136ms vs VITS int8 978ms vs melo 1715ms）。中文词典 + 英文词典
+（`lexicon.txt,lexicon-en.txt`）并列加载实现中英混读；英文单词靠英文词典查音素，
+字典里没有的词（如纯字母串 `ABCDEFD`）会被跳过——这是所有 phoneme 词典方案的共同限制。
+`Config` 可指定 `modelDir`、`acousticModelName`、`vocoder`、`lexicons`、`ruleFsts`、
+`numThreads`（默认 4）、`speakerId`、`speed`。
 
 `Config` 可指定 `modelDir`（服务器下载到自定义目录时用）、`numThreads`、`hotwords`（热词）、
 `verifyModel`（默认 true，加载前做 SHA-256 校验，避免半截文件导致 JNI 崩溃）、
@@ -187,13 +195,20 @@ keywords_raw.txt keywords.txt` 生成（注意 `tokens.txt` 路径指向 KWS 模
 
 ### TTS 模型
 
-`vits-melo-tts-zh_en`（中英双语，单 speaker）的 `model.onnx` 约 163MB，
-同样放外部私有目录，不进 assets / APK：
+默认用 `matcha-icefall-zh-en`（中英双语，非自回归），放外部私有目录，不进 assets / APK：
 
 ```
-/sdcard/Android/data/<applicationId>/files/sherpa/vits-melo-tts-zh_en/
-    model.onnx / lexicon.txt / tokens.txt / date.fst / number.fst / phone.fst
+/sdcard/Android/data/<applicationId>/files/sherpa/matcha-icefall-zh-en/
+    model-steps-3.onnx        # 声学模型 72MB
+    vocos-16khz-univ.onnx     # 声码器 51MB（独立下载）
+    lexicon.txt               # 中文发音词典
+    lexicon-en.txt            # 英文发音词典（随仓库入库，脚本复制到此目录）
+    tokens.txt / date-zh.fst / number-zh.fst / phone-zh.fst
 ```
+
+模型包 75MB + 声码器 51MB，合计约 130MB。实测对比（同机、同一文本、4 线程）：
+Matcha 短句 40ms / 长句 136ms；VITS int8 短句 357ms / 长句 978ms；
+melo float32 短句 411ms / 长句 1533ms。Matcha 快一个数量级。
 
 ```bash
 python tools/fetch_sherpa_asr.py --tts-only          # 只下载 + 校验 TTS

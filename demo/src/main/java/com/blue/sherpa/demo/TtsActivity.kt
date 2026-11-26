@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.blue.sherpa.tts.SherpaTts
 import com.blue.sherpa.ui.theme.SherpaTheme
 
-/** TTS 测试页：进入页面才加载 163MB 模型，避免拖慢 App 启动。 */
+/** TTS 测试页：进入页面才加载约 130MB 的中英双语模型，避免拖慢 App 启动。 */
 class TtsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,18 +42,20 @@ class TtsActivity : ComponentActivity() {
 @Composable
 private fun TtsDemoScreen() {
     val context = LocalContext.current
-    var inputText by remember { mutableStateOf("你好，小卓小卓。欢迎使用离线语音合成。") }
+    var inputText by remember { mutableStateOf("你好，欢迎使用离线语音合成。Hello, this is offline TTS.") }
     var state by remember { mutableStateOf(SherpaTts.state.name) }
     var modelInfo by remember { mutableStateOf(SherpaTts.modelInfo(context)) }
     var status by remember { mutableStateOf("") }
     var audioInfo by remember { mutableStateOf("") }
+    var latencyInfo by remember { mutableStateOf("尚未合成") }
+    var speed by remember { mutableStateOf(1.0f) }
 
     DisposableEffect(Unit) {
         TtsBus.listener = object : SherpaTts.Callback {
             override fun onState(newState: SherpaTts.State) {
                 state = when (newState) {
                     SherpaTts.State.IDLE -> "空闲"
-                    SherpaTts.State.INITIALIZING -> "初始化中（模型 163MB，首次稍慢）"
+                    SherpaTts.State.INITIALIZING -> "初始化中（中英模型约 130MB）"
                     SherpaTts.State.READY -> "就绪"
                     SherpaTts.State.SYNTHESIZING -> "合成中"
                     SherpaTts.State.PLAYING -> "播放中"
@@ -64,6 +66,10 @@ private fun TtsDemoScreen() {
             override fun onReady() {
                 modelInfo = SherpaTts.modelInfo(context)
                 status = "模型就绪，可以合成"
+            }
+
+            override fun onFirstAudioLatency(latencyMs: Int) {
+                latencyInfo = "${latencyMs} ms（点击 → 开始播放）"
             }
 
             override fun onStart(text: String, sampleRate: Int, durationMs: Int) {
@@ -96,6 +102,7 @@ private fun TtsDemoScreen() {
             Text("提示：$status", modifier = Modifier.padding(top = 4.dp))
             Text("模型：$modelInfo", modifier = Modifier.padding(top = 4.dp))
             Text("音频：$audioInfo", modifier = Modifier.padding(top = 4.dp))
+            Text("首句耗时：$latencyInfo", modifier = Modifier.padding(top = 4.dp))
 
             OutlinedTextField(
                 value = inputText,
@@ -108,12 +115,21 @@ private fun TtsDemoScreen() {
 
             Row(modifier = Modifier.padding(top = 12.dp)) {
                 Button(
-                    onClick = { SherpaTts.synthesize(inputText) },
+                    onClick = {
+                        latencyInfo = "计时中…"
+                        SherpaTts.synthesize(inputText, speed = speed)
+                    },
                     enabled = SherpaTts.isReady,
                     modifier = Modifier.padding(end = 12.dp),
                 ) { Text("合成并播放") }
 
                 Button(onClick = { SherpaTts.stop() }) { Text("停止播放") }
+            }
+
+            Row(modifier = Modifier.padding(top = 8.dp)) {
+                Button(onClick = { speed = if (speed == 1.0f) 1.2f else 1.0f }) {
+                    Text("语速：${speed}（点击切换）")
+                }
             }
 
             Row(modifier = Modifier.padding(top = 8.dp)) {
@@ -127,7 +143,7 @@ private fun TtsDemoScreen() {
             }
 
             Text(
-                "模型从应用外部私有目录加载，不进 APK；首次进入本页需等待加载。",
+                "中英双语离线合成，模型放外部私有目录不进 APK；按句边合成边播放，首句耗时见上方。",
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
