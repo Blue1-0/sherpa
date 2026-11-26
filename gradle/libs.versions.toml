@@ -1,0 +1,40 @@
+##########################################################################
+# 版本目录：与 android-basics 保持一致的工具链，别名风格也沿用该项目
+##########################################################################
+
+[versions]
+agp = "8.9.2"
+kotlin = "2.0.21"
+composeBom = "2025.04.01"          # Compose 1.8.0
+compileSdk = "35"
+minSdk = "24"
+targetSdk = "34"
+coreKtx = "1.13.1"
+activityCompose = "1.8.0"
+sherpaOnnx = "2.0.1"
+libVersion = "1.0.0"
+
+[libraries]
+coreKtxLib = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+lifecycleRuntimeLib = "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
+activityComposeLib = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidxComposeBom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+composeMaterial3 = { module = "androidx.compose.material3:material3" }
+composeUi = { module = "androidx.compose.ui:ui" }
+composeUiGraphics = { module = "androidx.compose.ui:ui-graphics" }
+composeUiTooling = { module = "androidx.compose.ui:ui-tooling" }
+composeUiToolingPreview = { module = "androidx.compose.ui:ui-tooling-preview" }
+composeUiTestManifest = { module = "androidx.compose.ui:ui-test-manifest" }
+composeUiTestJunit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+junit = "junit:junit:4.13.2"
+androidxJunit = "androidx.test.ext:junit:1.1.5"
+espressoCore = "androidx.test.espresso:espresso-core:3.5.1"
+
+# sherpa-onnx 官方 JNI AAR（JitPack），只含引擎，不含模型；模型由外部目录加载
+sherpaOnnx = { module = "com.github.k2-fsa.sherpa-onnx:sherpa-onnx", version.ref = "sherpaOnnx" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

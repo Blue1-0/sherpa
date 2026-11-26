@@ -1,0 +1,7 @@
+# JitPack 构建配置：与 scanner 项目一致，使用 JDK 17
+jdk:
+  - openjdk17
+
+publish:
+  - ./gradlew :lib_asr:publishToMavenLocal
+  - ./gradlew :lib_tts:publishToMavenLocal

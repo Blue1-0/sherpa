@@ -1,0 +1,29 @@
+*.iml
+.gradle
+/local.properties
+.idea/
+.DS_Store
+build/
+.kotlin/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# 模型文件不入库（ASR 约 190MB + KWS 约 5MB）；仓库只保留 manifest.json 校验清单
+/asr_models/models/
+/asr_models/downloads/
+/kws_models/sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/
+/kws_models/downloads/
+/tts_models/models/
+/tts_models/downloads/
+/asr_models.zip
+/kws_models.zip
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 离线备份 AAR 需要入库（Gradle 依赖仍走 JitPack 远程坐标）
+# root_libs/sherpa-onnx-2.0.1.aar
+/asr_models/models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
