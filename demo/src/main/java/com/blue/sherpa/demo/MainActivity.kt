@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
                             .padding(paddingValues)
                             .padding(16.dp),
                     ) {
-                        Text("sherpa-onnx Android Demo")
+                        Text("ASR TTS Android Demo")
                         Text(
                             "ASR 与 TTS 模型都在外部目录，不进 APK。",
                             modifier = Modifier.padding(top = 8.dp),
