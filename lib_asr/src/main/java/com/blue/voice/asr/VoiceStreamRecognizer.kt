@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.OnlineModelConfig
@@ -14,7 +14,7 @@ import java.io.File
  * 所有 JNI 调用必须串行，同一实例不要并发调用；麦克风采集线程顺序调用
  * [start]/[accept]/[stop] 即可。回调发生在调用线程，UI 层需要自行切回主线程。
  */
-class SherpaStreamRecognizer private constructor(
+class VoiceStreamRecognizer private constructor(
     private val recognizer: OnlineRecognizer,
     private val onPartial: (String) -> Unit,
     private val onFinal: (String) -> Unit,
@@ -24,26 +24,26 @@ class SherpaStreamRecognizer private constructor(
 
         /**
          * 从指定目录加载模型。该方法较重（加载 ONNX 权重），必须在后台线程调用。
-         * 默认目录为 [SherpaAsrModels.modelDir]，也支持传入服务器下载后的任意目录。
+         * 默认目录为 [VoiceAsrModels.modelDir]，也支持传入服务器下载后的任意目录。
          */
         fun create(
             modelDir: File,
             numThreads: Int = 2,
             onPartial: (String) -> Unit = {},
             onFinal: (String) -> Unit = {},
-        ): SherpaStreamRecognizer {
-            val missing = SherpaAsrModels.missingFiles(modelDir)
+        ): VoiceStreamRecognizer {
+            val missing = VoiceAsrModels.missingFiles(modelDir)
             require(missing.isEmpty()) { "模型文件缺失: ${missing.joinToString()}" }
 
             val config = OnlineRecognizerConfig(
                 featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
                 modelConfig = OnlineModelConfig(
                     transducer = OnlineTransducerModelConfig(
-                        encoder = File(modelDir, SherpaAsrModels.ENCODER).absolutePath,
-                        decoder = File(modelDir, SherpaAsrModels.DECODER).absolutePath,
-                        joiner = File(modelDir, SherpaAsrModels.JOINER).absolutePath,
+                        encoder = File(modelDir, VoiceAsrModels.ENCODER).absolutePath,
+                        decoder = File(modelDir, VoiceAsrModels.DECODER).absolutePath,
+                        joiner = File(modelDir, VoiceAsrModels.JOINER).absolutePath,
                     ),
-                    tokens = File(modelDir, SherpaAsrModels.TOKENS).absolutePath,
+                    tokens = File(modelDir, VoiceAsrModels.TOKENS).absolutePath,
                     numThreads = numThreads,
                     modelType = "zipformer",
                 ),
@@ -51,7 +51,7 @@ class SherpaStreamRecognizer private constructor(
                 decodingMethod = "greedy_search",
                 maxActivePaths = 4,
             )
-            return SherpaStreamRecognizer(
+            return VoiceStreamRecognizer(
                 recognizer = OnlineRecognizer(config = config),
                 onPartial = onPartial,
                 onFinal = onFinal,

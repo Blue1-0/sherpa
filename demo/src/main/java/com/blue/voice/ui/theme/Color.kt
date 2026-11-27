@@ -1,4 +1,4 @@
-package com.blue.sherpa.ui.theme
+package com.blue.voice.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

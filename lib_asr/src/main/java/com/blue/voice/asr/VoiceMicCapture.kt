@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -17,9 +17,9 @@ import kotlin.math.max
  * 调用方应捕获并通过错误回调告知用户。start()/stop() 成对调用，
  * stop() 会在采集线程中等待读取循环退出，不要在采集线程内调用它。
  */
-class SherpaMicCapture(
+class VoiceMicCapture(
     private val context: Application,
-    private val sampleRate: Int = SherpaStreamRecognizer.SAMPLE_RATE,
+    private val sampleRate: Int = VoiceStreamRecognizer.SAMPLE_RATE,
     private val onSamples: (FloatArray) -> Unit,
 ) {
     private var audioRecord: AudioRecord? = null

@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import android.content.Context
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.File
  *
  * 使用 int8 量化版（mobile），常驻监听约 5MB，远小于 190MB 的 ASR 模型。
  */
-object SherpaKwsModels {
+object VoiceKwsModels {
     const val MODEL_DIR_NAME = "sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile"
 
     const val TOKENS = "tokens.txt"
@@ -23,7 +23,7 @@ object SherpaKwsModels {
     val REQUIRED_FILES = listOf(TOKENS, ENCODER, DECODER, JOINER, KEYWORDS)
 
     /** KWS 模型目录：与 ASR 共用 sherpa 根目录。 */
-    fun modelDir(context: Context): File = File(SherpaAsrModels.rootDir(context), MODEL_DIR_NAME)
+    fun modelDir(context: Context): File = File(VoiceAsrModels.rootDir(context), MODEL_DIR_NAME)
 
     /** 返回缺失的文件名；全部存在时为空列表。 */
     fun missingFiles(modelDir: File): List<String> =

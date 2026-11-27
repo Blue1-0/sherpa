@@ -1,4 +1,4 @@
-package com.blue.sherpa.demo
+package com.blue.voice.demo
 
 import android.Manifest
 import android.os.Bundle
@@ -26,18 +26,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.blue.sherpa.asr.SherpaAsr
-import com.blue.sherpa.ui.theme.SherpaTheme
+import com.blue.voice.asr.VoiceAsr
+import com.blue.voice.ui.theme.VoiceTheme
 
 /**
- * ASR 测试页：引擎在 [SherpaApp] 里 init 一次，这里只注册回调并调用 start/stop。
- * 模型准备：python tools/fetch_sherpa_asr.py --push --package com.blue.sherpa.demo
+ * ASR 测试页：引擎在 [VoiceApp] 里 init 一次，这里只注册回调并调用 start/stop。
+ * 模型准备：python tools/fetch_sherpa_asr.py --push --package com.blue.voice.demo
  */
 class AsrActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SherpaTheme {
+            VoiceTheme {
                 AsrDemoScreen()
             }
         }
@@ -47,8 +47,8 @@ class AsrActivity : ComponentActivity() {
 @Composable
 private fun AsrDemoScreen() {
     val context = LocalContext.current
-    var modelInfo by remember { mutableStateOf(SherpaAsr.modelInfo(context)) }
-    var state by remember { mutableStateOf(SherpaAsr.state.name) }
+    var modelInfo by remember { mutableStateOf(VoiceAsr.modelInfo(context)) }
+    var state by remember { mutableStateOf(VoiceAsr.state.name) }
     var listening by remember { mutableStateOf(false) }
     var resultText by remember { mutableStateOf("") }
     var resultIsFinal by remember { mutableStateOf(false) }
@@ -60,37 +60,37 @@ private fun AsrDemoScreen() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            SherpaAsr.start()
+            VoiceAsr.start()
         } else {
             status = "录音权限被拒绝"
         }
     }
 
     DisposableEffect(Unit) {
-        AsrBus.listener = object : SherpaAsr.Callback {
-            override fun onState(newState: SherpaAsr.State) {
+        AsrBus.listener = object : VoiceAsr.Callback {
+            override fun onState(newState: VoiceAsr.State) {
                 state = when (newState) {
-                    SherpaAsr.State.IDLE -> "空闲"
-                    SherpaAsr.State.INITIALIZING -> "初始化中"
-                    SherpaAsr.State.READY -> "就绪"
-                    SherpaAsr.State.WAKING -> "唤醒监听中"
-                    SherpaAsr.State.LISTENING -> "识别中"
-                    SherpaAsr.State.ERROR -> "错误"
+                    VoiceAsr.State.IDLE -> "空闲"
+                    VoiceAsr.State.INITIALIZING -> "初始化中"
+                    VoiceAsr.State.READY -> "就绪"
+                    VoiceAsr.State.WAKING -> "唤醒监听中"
+                    VoiceAsr.State.LISTENING -> "识别中"
+                    VoiceAsr.State.ERROR -> "错误"
                 }
-                listening = newState == SherpaAsr.State.LISTENING
-                if (newState == SherpaAsr.State.IDLE ||
-                    newState == SherpaAsr.State.READY ||
-                    newState == SherpaAsr.State.ERROR
+                listening = newState == VoiceAsr.State.LISTENING
+                if (newState == VoiceAsr.State.IDLE ||
+                    newState == VoiceAsr.State.READY ||
+                    newState == VoiceAsr.State.ERROR
                 ) {
                     wakeActive = false
                 }
-                if (newState == SherpaAsr.State.LISTENING && wakeActive) {
+                if (newState == VoiceAsr.State.LISTENING && wakeActive) {
                     status = "已唤醒，正在识别（请说话）"
                 }
             }
 
             override fun onReady() {
-                modelInfo = SherpaAsr.modelInfo(context)
+                modelInfo = VoiceAsr.modelInfo(context)
                 status = "模型就绪，可以开始识别"
             }
 
@@ -141,12 +141,12 @@ private fun AsrDemoScreen() {
                 Button(
                     onClick = {
                         if (listening) return@Button
-                        if (!SherpaAsr.isReady) {
+                        if (!VoiceAsr.isReady) {
                             status = "模型尚未就绪，请稍候"
                             return@Button
                         }
-                        if (SherpaAsr.hasRecordPermission(context)) {
-                            SherpaAsr.start()
+                        if (VoiceAsr.hasRecordPermission(context)) {
+                            VoiceAsr.start()
                         } else {
                             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
@@ -156,18 +156,18 @@ private fun AsrDemoScreen() {
 
                 Button(onClick = {
                     wakeActive = false
-                    SherpaAsr.stop()
+                    VoiceAsr.stop()
                 }) { Text("停止识别") }
             }
 
             Row(modifier = Modifier.padding(top = 8.dp)) {
                 Button(onClick = {
                     wakeActive = false
-                    SherpaAsr.cancel()
+                    VoiceAsr.cancel()
                 }, modifier = Modifier.padding(end = 12.dp)) {
                     Text("取消")
                 }
-                Button(onClick = { SherpaAsr.release() }) { Text("释放引擎") }
+                Button(onClick = { VoiceAsr.release() }) { Text("释放引擎") }
             }
 
             Text("提示：$status", modifier = Modifier.padding(top = 12.dp))

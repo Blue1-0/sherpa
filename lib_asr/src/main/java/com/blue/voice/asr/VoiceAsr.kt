@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -12,21 +12,21 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * 语音转文字门面类：一个 init + 回调即可用，底层 [SherpaStreamRecognizer]/[SherpaMicCapture]
+ * 语音转文字门面类：一个 init + 回调即可用，底层 [VoiceStreamRecognizer]/[VoiceMicCapture]
  * 仍保留供高级场景直接使用。
  *
  * 用法（Application.onCreate 里调用一次）：
  * ```
- * SherpaAsr.init(this, SherpaAsr.Config(), object : SherpaAsr.Callback {
+ * VoiceAsr.init(this, VoiceAsr.Config(), object : VoiceAsr.Callback {
  *     override fun onReady() { ... }
  *     override fun onPartial(text: String) { ... }
  *     override fun onFinal(text: String) { ... }
  *     override fun onError(message: String) { ... }
  * })
  * // 录音权限拿到后：
- * SherpaAsr.start()
+ * VoiceAsr.start()
  * // 结束：
- * SherpaAsr.stop()
+ * VoiceAsr.stop()
  * ```
  *
  * 所有 JNI 与录音调用都在同一个串行后台线程执行；回调统一切回主线程。
@@ -34,7 +34,7 @@ import java.util.concurrent.Executors
  * 显式加 @SuppressLint 兜底，避免 lint 沿静态引用链误判为 Context 泄漏。
  */
 @SuppressLint("StaticFieldLeak")
-object SherpaAsr {
+object VoiceAsr {
 
     enum class State {
         IDLE,           // 未初始化
@@ -63,7 +63,7 @@ object SherpaAsr {
          * 已 token 化的唤醒词字符串，每行一个词；非空时会生成词表文件并替换模型自带词表。
          * 默认是内置「小卓小卓」；传空字符串并配合 keywordsFile 可走文件方式。
          */
-        val keywords: String = SherpaWakeWord.DEFAULT_KEYWORDS,
+        val keywords: String = VoiceWakeWord.DEFAULT_KEYWORDS,
         /** 已 token 化的词表文件；仅当 keywords 为空时生效。 */
         val keywordsFile: File? = null,
         /** boosting 分数，越大越容易触发；官方默认 1.0，这里调到 2.0 提高灵敏度。 */
@@ -114,10 +114,10 @@ object SherpaAsr {
     private var appContext: Application? = null
     private var config: Config = Config()
     private var callback: Callback? = null
-    private var recognizer: SherpaStreamRecognizer? = null
-    private var mic: SherpaMicCapture? = null
-    private var wakeWord: SherpaWakeWord? = null
-    private var wakeMic: SherpaMicCapture? = null
+    private var recognizer: VoiceStreamRecognizer? = null
+    private var mic: VoiceMicCapture? = null
+    private var wakeWord: VoiceWakeWord? = null
+    private var wakeMic: VoiceMicCapture? = null
 
     val isReady: Boolean get() = state == State.READY || state == State.LISTENING || state == State.WAKING
 
@@ -126,7 +126,7 @@ object SherpaAsr {
         context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     /** 模型目录描述，便于在页面上显示状态。 */
-    fun modelInfo(context: Context): String = SherpaAsrModels.describe(context)
+    fun modelInfo(context: Context): String = VoiceAsrModels.describe(context)
 
     /**
      * 在 Application.onCreate 调用一次。后台加载模型，成功回调 [Callback.onReady]，
@@ -140,16 +140,16 @@ object SherpaAsr {
         worker.execute {
             try {
                 val app = this.appContext ?: error("application context 为空")
-                val dir = config.modelDir ?: SherpaAsrModels.modelDir(app)
+                val dir = config.modelDir ?: VoiceAsrModels.modelDir(app)
                 val bad = if (config.verifyModel) {
-                    SherpaAsrModels.verify(dir, app)
+                    VoiceAsrModels.verify(dir, app)
                 } else {
-                    SherpaAsrModels.missingFiles(dir)
+                    VoiceAsrModels.missingFiles(dir)
                 }
                 require(bad.isEmpty()) {
                     "模型文件异常（缺失或损坏）: ${bad.joinToString()}；目录: ${dir.absolutePath}"
                 }
-                val engine = SherpaStreamRecognizer.create(
+                val engine = VoiceStreamRecognizer.create(
                     modelDir = dir,
                     numThreads = config.numThreads,
                     onPartial = { text -> dispatch { it.onPartial(text) } },
@@ -188,7 +188,7 @@ object SherpaAsr {
                 stopWakeMicInternal() // 释放麦克风给 ASR
                 engine.cancel()
                 engine.start(config.hotwords)
-                val capture = SherpaMicCapture(app) { samples -> engine.accept(samples) }
+                val capture = VoiceMicCapture(app) { samples -> engine.accept(samples) }
                 capture.start()
                 mic = capture
                 setState(State.LISTENING)
@@ -269,8 +269,8 @@ object SherpaAsr {
     // ---- 内部：唤醒词 ----
 
     private fun initWakeWordInternal(app: Application, wc: WakeWordConfig) {
-        val dir = wc.modelDir ?: SherpaKwsModels.modelDir(app)
-        wakeWord = SherpaWakeWord.create(
+        val dir = wc.modelDir ?: VoiceKwsModels.modelDir(app)
+        wakeWord = VoiceWakeWord.create(
             modelDir = dir,
             keywords = wc.keywords,
             keywordsFile = wc.keywordsFile,
@@ -295,7 +295,7 @@ object SherpaAsr {
             return
         }
         if (wakeMic?.isRunning == true) return
-        val capture = SherpaMicCapture(app) { samples -> engine.accept(samples) }
+        val capture = VoiceMicCapture(app) { samples -> engine.accept(samples) }
         capture.start()
         wakeMic = capture
         setState(State.WAKING)
@@ -315,7 +315,7 @@ object SherpaAsr {
         try {
             engine.cancel()
             engine.start(config.hotwords)
-            val capture = SherpaMicCapture(app) { samples -> engine.accept(samples) }
+            val capture = VoiceMicCapture(app) { samples -> engine.accept(samples) }
             capture.start()
             mic = capture
             setState(State.LISTENING)

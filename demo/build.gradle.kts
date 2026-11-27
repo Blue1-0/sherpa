@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.blue.sherpa.demo"
+    namespace = "com.blue.voice.demo"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.blue.sherpa.demo"
+        applicationId = "com.blue.voice.demo"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1

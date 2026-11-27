@@ -1,4 +1,4 @@
-package com.blue.sherpa.tts
+package com.blue.voice.tts
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -14,7 +14,7 @@ import java.util.ArrayDeque
  *  - 合成线程调用 [write]，只做 PCM 转换并入队，毫秒级返回；
  *  - 独立播放线程从队列取数据，慢慢写入 AudioTrack（阻塞发生在播放线程）。
  */
-internal class SherpaTtsPlayer(sampleRate: Int) {
+internal class VoiceTtsPlayer(sampleRate: Int) {
     @Volatile
     private var stopped = false
 

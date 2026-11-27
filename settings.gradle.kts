@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "sherpaTest"
+rootProject.name = "sherpa"
 include(":lib_asr")
 include(":lib_tts")
 include(":demo")

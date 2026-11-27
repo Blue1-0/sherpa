@@ -1,4 +1,4 @@
-package com.blue.sherpa.tts
+package com.blue.voice.tts
 
 import android.annotation.SuppressLint
 import android.app.Application
@@ -15,12 +15,12 @@ import java.util.concurrent.Executors
 /**
  * 离线 TTS 门面。
  *
- * 与 [SherpaAsr] 保持同样用法：一次 init，后台线程合成/播放，回调回主线程。
+ * 与 [VoiceAsr] 保持同样用法：一次 init，后台线程合成/播放，回调回主线程。
  * 默认用 Matcha 中英双语模型（非自回归，合成速度约为 VITS 的 10 倍），
- * 模型不进 assets / APK，从 [SherpaTtsModels.defaultModelDir] 加载。
+ * 模型不进 assets / APK，从 [VoiceTtsModels.defaultModelDir] 加载。
  */
 @SuppressLint("StaticFieldLeak") // 只持有 Application，不会泄漏 Activity
-object SherpaTts {
+object VoiceTts {
     enum class State { IDLE, INITIALIZING, READY, SYNTHESIZING, PLAYING, ERROR }
 
     interface Callback {
@@ -33,7 +33,7 @@ object SherpaTts {
         fun onError(message: String) = Unit
     }
 
-    private const val TAG = "SherpaTts"
+    private const val TAG = "VoiceTts"
 
     /**
      * @param modelDir 模型目录；默认 `<externalFilesDir>/sherpa/matcha-icefall-zh-en`
@@ -44,14 +44,21 @@ object SherpaTts {
      */
     data class Config(
         val modelDir: File? = null,
-        val modelName: String = SherpaTtsModels.MODEL_FILE,
-        val acousticModelName: String = SherpaTtsModels.ACOUSTIC_MODEL_FILE,
-        val vocoder: String = SherpaTtsModels.VOCODER_FILE,
-        val lexicons: List<String> = SherpaTtsModels.DEFAULT_LEXICONS,
-        val ruleFsts: List<String> = SherpaTtsModels.DEFAULT_RULE_FSTS,
+        val modelName: String = VoiceTtsModels.MODEL_FILE,
+        val acousticModelName: String = VoiceTtsModels.ACOUSTIC_MODEL_FILE,
+        val vocoder: String = VoiceTtsModels.VOCODER_FILE,
+        val lexicons: List<String> = VoiceTtsModels.DEFAULT_LEXICONS,
+        val ruleFsts: List<String> = VoiceTtsModels.DEFAULT_RULE_FSTS,
         /** 推理线程数；实测 4 线程比 2 线程快约 20~30%，PDA 多核建议 4。 */
         val numThreads: Int = 4,
+        /**
+         * 音色编号。默认模型 matcha-icefall-zh-en 只有 1 个说话人（n_speakers=1），
+         * 均为女声，故此处只能填 0；传其它值不会得到男声。
+         * 只有换成多说话人模型（如 aishell3、kokoro 等）时，才可选 0 until numSpeakers，
+         * 具体每个 id 对应男/女声需查所用模型的说明。
+         */
         val speakerId: Int = 0,
+        /** 语速倍率；1.0 为原速，1.2 稍快。 */
         val speed: Float = 1.0f,
     )
 
@@ -66,7 +73,7 @@ object SherpaTts {
     private var activeConfig = Config()
     private var callback: Callback? = null
     private var tts: OfflineTts? = null
-    private var player: SherpaTtsPlayer? = null
+    private var player: VoiceTtsPlayer? = null
     private var generationSeq = 0
 
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "sherpa-tts-worker") }
@@ -84,8 +91,8 @@ object SherpaTts {
         setState(State.INITIALIZING)
         worker.execute {
             try {
-                val dir = config.modelDir ?: SherpaTtsModels.defaultModelDir(context)
-                val missing = SherpaTtsModels.requiredFiles(dir).filterNot { it.exists() }
+                val dir = config.modelDir ?: VoiceTtsModels.defaultModelDir(context)
+                val missing = VoiceTtsModels.requiredFiles(dir).filterNot { it.exists() }
                 if (missing.isNotEmpty()) {
                     throw IllegalStateException("缺少 TTS 模型文件：${missing.joinToString { it.name }}")
                 }
@@ -127,6 +134,9 @@ object SherpaTts {
      *
      * 按标点分句后逐句合成、逐句写入 AudioTrack：第一句生成（约 0.3s）就开始出声，
      * 后续句子在播放期间继续合成，用户感知等待大幅缩短。
+     *
+     * @param speakerId 音色编号；默认模型仅支持 0（唯一女声），详见 [Config.speakerId]。
+     * @param speed 语速倍率，默认取 [Config.speed]。
      */
     fun synthesize(
         text: String,
@@ -157,7 +167,7 @@ object SherpaTts {
                 setState(State.SYNTHESIZING)
                 val tWorker = SystemClock.elapsedRealtime()
 
-                val p = SherpaTtsPlayer(engine.sampleRate())
+                val p = VoiceTtsPlayer(engine.sampleRate())
                 player = p
                 p.open()
                 val tOpen = SystemClock.elapsedRealtime()
@@ -244,10 +254,10 @@ object SherpaTts {
     fun sampleRate(): Int = tts?.sampleRate() ?: 0
 
     fun modelInfo(context: Context): String =
-        SherpaTtsModels.describe(SherpaTtsModels.defaultModelDir(context))
+        VoiceTtsModels.describe(VoiceTtsModels.defaultModelDir(context))
 
     fun hasModel(context: Context): Boolean =
-        SherpaTtsModels.requiredFiles(SherpaTtsModels.defaultModelDir(context)).all { it.exists() }
+        VoiceTtsModels.requiredFiles(VoiceTtsModels.defaultModelDir(context)).all { it.exists() }
 
     private fun setState(newState: State) {
         state = newState

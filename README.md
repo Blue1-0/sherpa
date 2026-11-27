@@ -7,12 +7,28 @@
 
 | 模块 | 说明 | 发布坐标 |
 | --- | --- | --- |
-| `lib_asr` | 中英双语流式识别（Zipformer int8）、麦克风采集、模型校验 | `com.github.Blue1-0.sherpa:lib-asr:1.0.0` |
-| `lib_tts` | 离线 TTS（Matcha 中英双语、非自回归高速合成）、AudioTrack 播放、外部模型目录 | `com.github.Blue1-0.sherpa:lib-tts:1.0.0` |
+| `lib_asr` | 中英双语流式识别（Zipformer int8）、麦克风采集、模型校验 | `com.github.Blue1-0.sherpa:lib-asr:2.0.0` |
+| `lib_tts` | 离线 TTS（Matcha 中英双语、非自回归高速合成）、AudioTrack 播放、外部模型目录 | `com.github.Blue1-0.sherpa:lib-tts:2.0.0` |
 | `demo` | Compose 测试页：入口菜单两个按钮分别进入 ASR / TTS | 不发布 |
 
 引擎统一使用 `com.github.k2-fsa.sherpa-onnx:sherpa-onnx:2.0.1`（JitPack），
 包含 JNI 与 ONNX Runtime，不含模型权重。
+
+> **2.0.0 破坏性变更**：门面与包名已去掉底层名称——`SherpaAsr` → `VoiceAsr`（包
+> `com.blue.voice.asr`）、`SherpaTts` → `VoiceTts`（包 `com.blue.voice.tts`），底层类同步更名，
+> 不保留旧类兼容。从 1.0.0 升级需改 import 和类名；JitPack 坐标仍是 `com.github.Blue1-0.sherpa`。
+>
+> **模型需重新推送**：demo 的 `applicationId` 从 `com.blue.sherpa.demo` 改为 `com.blue.voice.demo`，
+> 模型放在应用外部私有目录（`.../files/sherpa/`），换包名后旧目录读不到，需重新推送：
+> `python tools/fetch_sherpa_asr.py --push`（或 `--package <你的包名>` 指定目标 app）。
+> 接入方自己的包名若变化，同样需要重新下载/推送模型。
+
+### 代码混淆（R8）
+
+两个库的 AAR 都自带 `consumer-rules.pro`，使用方开启 `isMinifyEnabled = true` 时会自动合并，
+**无需手动添加 keep 规则**。规则内容：保住引擎 `com.k2fsa.sherpa.onnx.**` 的 JNI native 方法
+（防止 `UnsatisfiedLinkError`）、本库 `com.blue.voice.asr.**` / `com.blue.voice.tts.**` 的公开 API
+与回调接口，并保留注解/泛型签名。若使用方禁用了 consumer rules 的合并，需自行加上这些 keep。
 
 ## 使用
 
@@ -21,8 +37,8 @@
 maven { url = uri("https://jitpack.io") }
 
 // 按需依赖，两个模块互不捆绑
-implementation("com.github.Blue1-0.sherpa:lib-asr:1.0.0")
-implementation("com.github.Blue1-0.sherpa:lib-tts:1.0.0")
+implementation("com.github.Blue1-0.sherpa:lib-asr:2.0.0")
+implementation("com.github.Blue1-0.sherpa:lib-tts:2.0.0")
 ```
 
 ### 最简单用法（一个门面类 + 回调）
@@ -33,7 +49,7 @@ App 创建时 init 一次，回调统一在主线程：
 class MyApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        SherpaAsr.init(this, SherpaAsr.Config(), object : SherpaAsr.Callback {
+        VoiceAsr.init(this, VoiceAsr.Config(), object : VoiceAsr.Callback {
             override fun onReady() { /* 模型就绪 */ }
             override fun onPartial(text: String) { /* 实时上屏 */ }
             override fun onFinal(text: String) { /* 最终结果 */ }
@@ -43,12 +59,12 @@ class MyApp : Application() {
 }
 
 // 拿到 RECORD_AUDIO 运行时权限后：
-if (SherpaAsr.hasRecordPermission(this)) SherpaAsr.start()
+if (VoiceAsr.hasRecordPermission(this)) VoiceAsr.start()
 else requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
 
-SherpaAsr.stop()     // 结束，结果走 onFinal
-SherpaAsr.cancel()   // 丢弃当前语音
-SherpaAsr.release()  // 释放引擎
+VoiceAsr.stop()     // 结束，结果走 onFinal
+VoiceAsr.cancel()   // 丢弃当前语音
+VoiceAsr.release()  // 释放引擎
 ```
 
 ### TTS（文字转语音）
@@ -57,7 +73,7 @@ SherpaAsr.release()  // 释放引擎
 不要放在 Application.onCreate，避免拖慢启动。`init` 是幂等的，重复调用只替换回调：
 
 ```kotlin
-SherpaTts.init(application, SherpaTts.Config(), object : SherpaTts.Callback {
+VoiceTts.init(application, VoiceTts.Config(), object : VoiceTts.Callback {
     override fun onReady() { /* 模型就绪 */ }
     override fun onFirstAudioLatency(ms: Int) { /* 点击 → 首句播放 的耗时 */ }
     override fun onStart(text: String, sampleRate: Int, durationMs: Int) { /* 开始播放 */ }
@@ -65,14 +81,19 @@ SherpaTts.init(application, SherpaTts.Config(), object : SherpaTts.Callback {
     override fun onError(message: String) { /* 失败原因 */ }
 })
 
-SherpaTts.synthesize("你好，欢迎使用语音合成。Hello, this is offline TTS.") // 中英混读，按句流式输出
-SherpaTts.synthesize("你好", speed = 1.2f) // 语速加快
-SherpaTts.stop()                           // 停止播放，保留引擎
-SherpaTts.release()                        // 释放引擎
+VoiceTts.synthesize("你好，欢迎使用语音合成。Hello, this is offline TTS.") // 中英混读，按句流式输出
+VoiceTts.synthesize("你好", speed = 1.2f) // 语速加快
+VoiceTts.stop()                           // 停止播放，保留引擎
+VoiceTts.release()                        // 释放引擎
 ```
 
 `synthesize` 会按标点分句：第一句合成完就开始出声，后续句子在播放期间继续合成。
-耗时通过 `onFirstAudioLatency(ms)` 回调（同时用 `Log.d("SherpaTts", ...)` 打印）。
+耗时通过 `onFirstAudioLatency(ms)` 回调（同时用 `Log.d("VoiceTts", ...)` 打印）。
+
+**关于音色（speakerId）**：默认 Matcha 模型的 `n_speakers=1`，只有 1 个音色且为女声，
+所以 `speakerId` 只能填 `0`（默认），传别的值也不会变成男声。要男声需换多说话人模型
+（如 aishell3、kokoro 等），换模型后 `speakerId` 可选 `0 until numSpeakers`，具体 id 对应
+男声/女声请查该模型说明。
 
 **为什么用 Matcha**：非自回归、3 步解码，实测合成耗时约为 VITS 的 1/10
 （本机长句 136ms vs VITS int8 978ms vs melo 1715ms）。中文词典 + 英文词典
@@ -84,8 +105,8 @@ SherpaTts.release()                        // 释放引擎
 `Config` 可指定 `modelDir`（服务器下载到自定义目录时用）、`numThreads`、`hotwords`（热词）、
 `verifyModel`（默认 true，加载前做 SHA-256 校验，避免半截文件导致 JNI 崩溃）、
 `wakeWord`（唤醒词配置，见下）。
-需要更细控制的场景可直接使用底层 `SherpaStreamRecognizer` / `SherpaMicCapture` / `SherpaAsrModels` /
-`SherpaWakeWord` / `SherpaKwsModels`。
+需要更细控制的场景可直接使用底层 `VoiceStreamRecognizer` / `VoiceMicCapture` / `VoiceAsrModels` /
+`VoiceWakeWord` / `VoiceKwsModels`。
 
 ### 唤醒词（类小爱同学）
 
@@ -93,8 +114,8 @@ SherpaTts.release()                        // 释放引擎
 命中后回调 `onWakeWord`；默认 `autoStartAsr=true` 会自动进入 ASR 识别，命令词结果仍走 `onFinal`：
 
 ```kotlin
-val config = SherpaAsr.Config(
-    wakeWord = SherpaAsr.WakeWordConfig(
+val config = VoiceAsr.Config(
+    wakeWord = VoiceAsr.WakeWordConfig(
         enable = true,             // 默认 false
         autoStartAsr = true,       // 命中后自动开始识别
         keywordsScore = 2.0f,          // 越大越容易触发（库内默认，官方默认 1.0）
@@ -103,7 +124,7 @@ val config = SherpaAsr.Config(
         maxActivePaths = 4,            // 仍不够灵敏可试 8，CPU 开销略增
     ),
 )
-SherpaAsr.init(this, config, callback)
+VoiceAsr.init(this, config, callback)
 
 // callback 里接收唤醒：
 override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
@@ -117,7 +138,7 @@ override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
 1. **代码字符串（推荐）**——传已 token 化的字符串，库自动生成词表文件并替换自带词表：
 
    ```kotlin
-   wakeWord = SherpaAsr.WakeWordConfig(
+   wakeWord = VoiceAsr.WakeWordConfig(
        enable = true,
        keywords = "n ǐ h ǎo zh uó zh uó @你好卓卓",  // 每行一个词；灵敏度用下面字段配置
    )
@@ -126,7 +147,7 @@ override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
 2. **词表文件**——先把 `keywords` 置空，再用 `keywordsFile` 指向已 token 化的文件：
 
    ```kotlin
-   wakeWord = SherpaAsr.WakeWordConfig(
+   wakeWord = VoiceAsr.WakeWordConfig(
        enable = true,
        keywords = "",
        keywordsFile = File(getExternalFilesDir(null), "my_keywords.txt"),
@@ -146,7 +167,7 @@ override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
   `sherpa-onnx-cli text2token --tokens <kws目录>/tokens.txt --tokens-type ppinyin keywords_raw.txt keywords.txt`，
   其中 `keywords_raw.txt` 每行是 `汉字 :分数 #阈值 @汉字`。
 
-- 运行期可 `SherpaAsr.setWakeWordEnabled(true/false)` 开关，无需重新 init。
+- 运行期可 `VoiceAsr.setWakeWordEnabled(true/false)` 开关，无需重新 init。
 - KWS 与 ASR 共用麦克风：唤醒监听期间麦克风归 KWS，命中/手动 start 后切给 ASR，
   stop/cancel 后自动恢复 KWS 监听。
 - 常驻监听需要前台 Service + `foregroundServiceType="microphone"`（Android 9+），demo 为简化未做前台 Service，
@@ -157,7 +178,7 @@ override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
 - 依赖后即可用：JNI 与 ONNX Runtime 的 `.so` 由远程 AAR 自动打进 APK（arm64-v8a / armeabi-v7a /
   x86 / x86_64 均已验证）；**模型文件不包含在内**，需按下面步骤单独准备。
 - minSdk 24（Android 5.0+），JDK 17 / Kotlin 2.0.21 / Compose 1.8，与主项目一致。
-- `SherpaMicCapture` 内显式检查 `RECORD_AUDIO` 运行时权限，未授权抛 `SecurityException`，
+- `VoiceMicCapture` 内显式检查 `RECORD_AUDIO` 运行时权限，未授权抛 `SecurityException`，
   门面会转成 `onError` 回调；App 仍需自行申请权限。
 - 依赖库本身不申请权限、不弹窗、不依赖任何 Activity/Fragment，可在 Service 中使用。
 
@@ -174,13 +195,13 @@ override fun onWakeWord(keyword: String) { /* 默认「小卓小卓」 */ }
 ```bash
 python tools/fetch_sherpa_asr.py             # 下载 + 校验
 python tools/fetch_sherpa_asr.py --push      # push 到已连接设备
-python tools/fetch_sherpa_asr.py --package com.blue.sherpa.demo
+python tools/fetch_sherpa_asr.py --package com.blue.voice.demo
 ```
 
 `asr_models/manifest.json` 记录每个文件的大小与 SHA-256；`lib_asr` 里的
 `assets/model_manifest.json` 供运行时做完整性校验（避免半截文件导致 JNI 崩溃）。
 后续如需服务器下载，把 4 个模型文件 + manifest 放服务器即可，下载到同一目录，
-`SherpaStreamRecognizer.create(modelDir)` 支持传入任意可读取目录。
+`VoiceStreamRecognizer.create(modelDir)` 支持传入任意可读取目录。
 
 唤醒词模型（约 5MB，启用唤醒词时必须）在：
 
@@ -234,4 +255,4 @@ python tools/fetch_sherpa_asr.py --tts-only --push   # 推送到已连接设备
 ./gradlew :lib_tts:publishToMavenLocal
 ```
 
-打 tag（如 `1.0.0`）后在 JitPack 构建即可按上面坐标引用。
+打 tag（如 `2.0.0`）后在 JitPack 构建即可按上面坐标引用。

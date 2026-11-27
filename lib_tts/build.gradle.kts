@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.blue.sherpa.tts"
+    namespace = "com.blue.voice.tts"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

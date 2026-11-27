@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.KeywordSpotter
@@ -11,11 +11,11 @@ import java.io.File
  * 中文唤醒词（KWS）封装：基于 sherpa-onnx 的 KeywordSpotter，
  * 用一个约 5MB 的小模型常驻监听，只识别词表里列出的唤醒词。
  *
- * 每次 [accept] 送入 16kHz 单声道 PCM 浮点采样（与 [SherpaMicCapture] 输出一致）；
+ * 每次 [accept] 送入 16kHz 单声道 PCM 浮点采样（与 [VoiceMicCapture] 输出一致）；
  * 命中时通过 [onKeyword] 回调词文本，随后内部自动 reset 以便再次唤醒。
  * 所有 JNI 调用须串行，回调发生在调用线程。加载模型较重，须在后台线程 [create]。
  */
-class SherpaWakeWord private constructor(
+class VoiceWakeWord private constructor(
     private val spotter: KeywordSpotter,
     private val onKeyword: (String) -> Unit,
 ) {
@@ -53,8 +53,8 @@ class SherpaWakeWord private constructor(
             maxActivePaths: Int = 4,
             numThreads: Int = 1,
             onKeyword: (String) -> Unit,
-        ): SherpaWakeWord {
-            val missing = SherpaKwsModels.missingFiles(modelDir)
+        ): VoiceWakeWord {
+            val missing = VoiceKwsModels.missingFiles(modelDir)
             require(missing.isEmpty()) { "唤醒词模型文件缺失: ${missing.joinToString()}" }
 
             // 词表文件：字符串 > 外部文件 > 模型自带 keywords.txt
@@ -67,7 +67,7 @@ class SherpaWakeWord private constructor(
                     file
                 }
                 keywordsFile != null -> keywordsFile
-                else -> File(modelDir, SherpaKwsModels.KEYWORDS)
+                else -> File(modelDir, VoiceKwsModels.KEYWORDS)
             }
             require(effectiveKeywordsFile.isFile) {
                 "唤醒词文件不存在: ${effectiveKeywordsFile.absolutePath}"
@@ -77,11 +77,11 @@ class SherpaWakeWord private constructor(
                 featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
                 modelConfig = OnlineModelConfig(
                     transducer = OnlineTransducerModelConfig(
-                        encoder = File(modelDir, SherpaKwsModels.ENCODER).absolutePath,
-                        decoder = File(modelDir, SherpaKwsModels.DECODER).absolutePath,
-                        joiner = File(modelDir, SherpaKwsModels.JOINER).absolutePath,
+                        encoder = File(modelDir, VoiceKwsModels.ENCODER).absolutePath,
+                        decoder = File(modelDir, VoiceKwsModels.DECODER).absolutePath,
+                        joiner = File(modelDir, VoiceKwsModels.JOINER).absolutePath,
                     ),
-                    tokens = File(modelDir, SherpaKwsModels.TOKENS).absolutePath,
+                    tokens = File(modelDir, VoiceKwsModels.TOKENS).absolutePath,
                     numThreads = numThreads,
                     modelType = "zipformer2",
                 ),
@@ -92,7 +92,7 @@ class SherpaWakeWord private constructor(
                 maxActivePaths = maxActivePaths,
             )
             val spotter = KeywordSpotter(config = config)
-            return SherpaWakeWord(spotter, onKeyword)
+            return VoiceWakeWord(spotter, onKeyword)
         }
     }
 

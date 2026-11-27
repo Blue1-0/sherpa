@@ -1,4 +1,4 @@
-package com.blue.sherpa.tts
+package com.blue.voice.tts
 
 import android.content.Context
 import java.io.File
@@ -12,7 +12,7 @@ import java.io.File
  * 默认用 Matcha（非自回归，3 步解码）中英双语模型：
  * 实测合成耗时约为 VITS 的 1/10；中文词典 + 英文词典并列实现中英混读。
  */
-object SherpaTtsModels {
+object VoiceTtsModels {
     const val ROOT_DIR = "sherpa"
     const val MODEL_DIR_NAME = "matcha-icefall-zh-en"
     const val ACOUSTIC_MODEL_FILE = "model-steps-3.onnx"

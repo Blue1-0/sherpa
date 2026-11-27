@@ -1,4 +1,4 @@
-package com.blue.sherpa.demo
+package com.blue.voice.demo
 
 import android.app.Application
 import android.os.Bundle
@@ -24,15 +24,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.blue.sherpa.tts.SherpaTts
-import com.blue.sherpa.ui.theme.SherpaTheme
+import com.blue.voice.tts.VoiceTts
+import com.blue.voice.ui.theme.VoiceTheme
 
 /** TTS 测试页：进入页面才加载约 130MB 的中英双语模型，避免拖慢 App 启动。 */
 class TtsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SherpaTheme {
+            VoiceTheme {
                 TtsDemoScreen()
             }
         }
@@ -43,28 +43,28 @@ class TtsActivity : ComponentActivity() {
 private fun TtsDemoScreen() {
     val context = LocalContext.current
     var inputText by remember { mutableStateOf("你好，欢迎使用离线语音合成。Hello, this is offline TTS.") }
-    var state by remember { mutableStateOf(SherpaTts.state.name) }
-    var modelInfo by remember { mutableStateOf(SherpaTts.modelInfo(context)) }
+    var state by remember { mutableStateOf(VoiceTts.state.name) }
+    var modelInfo by remember { mutableStateOf(VoiceTts.modelInfo(context)) }
     var status by remember { mutableStateOf("") }
     var audioInfo by remember { mutableStateOf("") }
     var latencyInfo by remember { mutableStateOf("尚未合成") }
     var speed by remember { mutableStateOf(1.0f) }
 
     DisposableEffect(Unit) {
-        TtsBus.listener = object : SherpaTts.Callback {
-            override fun onState(newState: SherpaTts.State) {
+        TtsBus.listener = object : VoiceTts.Callback {
+            override fun onState(newState: VoiceTts.State) {
                 state = when (newState) {
-                    SherpaTts.State.IDLE -> "空闲"
-                    SherpaTts.State.INITIALIZING -> "初始化中（中英模型约 130MB）"
-                    SherpaTts.State.READY -> "就绪"
-                    SherpaTts.State.SYNTHESIZING -> "合成中"
-                    SherpaTts.State.PLAYING -> "播放中"
-                    SherpaTts.State.ERROR -> "错误"
+                    VoiceTts.State.IDLE -> "空闲"
+                    VoiceTts.State.INITIALIZING -> "初始化中（中英模型约 130MB）"
+                    VoiceTts.State.READY -> "就绪"
+                    VoiceTts.State.SYNTHESIZING -> "合成中"
+                    VoiceTts.State.PLAYING -> "播放中"
+                    VoiceTts.State.ERROR -> "错误"
                 }
             }
 
             override fun onReady() {
-                modelInfo = SherpaTts.modelInfo(context)
+                modelInfo = VoiceTts.modelInfo(context)
                 status = "模型就绪，可以合成"
             }
 
@@ -85,7 +85,7 @@ private fun TtsDemoScreen() {
             override fun onError(message: String) { status = "错误：$message" }
         }
         // init 是幂等的：已初始化时只替换回调，不会重复加载模型。
-        SherpaTts.init(context.applicationContext as Application, callback = TtsBus.relay)
+        VoiceTts.init(context.applicationContext as Application, callback = TtsBus.relay)
         onDispose { TtsBus.listener = null }
     }
 
@@ -117,13 +117,13 @@ private fun TtsDemoScreen() {
                 Button(
                     onClick = {
                         latencyInfo = "计时中…"
-                        SherpaTts.synthesize(inputText, speed = speed)
+                        VoiceTts.synthesize(inputText, speed = speed)
                     },
-                    enabled = SherpaTts.isReady,
+                    enabled = VoiceTts.isReady,
                     modifier = Modifier.padding(end = 12.dp),
                 ) { Text("合成并播放") }
 
-                Button(onClick = { SherpaTts.stop() }) { Text("停止播放") }
+                Button(onClick = { VoiceTts.stop() }) { Text("停止播放") }
             }
 
             Row(modifier = Modifier.padding(top = 8.dp)) {
@@ -134,11 +134,11 @@ private fun TtsDemoScreen() {
 
             Row(modifier = Modifier.padding(top = 8.dp)) {
                 Button(
-                    onClick = { SherpaTts.release() },
+                    onClick = { VoiceTts.release() },
                     modifier = Modifier.padding(end = 12.dp),
                 ) { Text("释放引擎") }
                 Button(onClick = {
-                    SherpaTts.init(context.applicationContext as Application, callback = TtsBus.relay)
+                    VoiceTts.init(context.applicationContext as Application, callback = TtsBus.relay)
                 }) { Text("重新初始化") }
             }
 

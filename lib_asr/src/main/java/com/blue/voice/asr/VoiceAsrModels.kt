@@ -1,4 +1,4 @@
-package com.blue.sherpa.asr
+package com.blue.voice.asr
 
 import android.content.Context
 import java.io.File
@@ -11,10 +11,10 @@ import java.security.MessageDigest
  * 模型不进 assets / APK，默认放在 app 的外部私有目录：
  * /sdcard/Android/data/<applicationId>/files/sherpa/<MODEL_DIR_NAME>/
  *
- * 也可以通过 [SherpaStreamRecognizer.create] 传入任意可读取的目录，
+ * 也可以通过 [VoiceStreamRecognizer.create] 传入任意可读取的目录，
  * 便于放在公共目录或由服务器先行下载。
  */
-object SherpaAsrModels {
+object VoiceAsrModels {
     const val ROOT_DIR_NAME = "sherpa"
     const val MODEL_DIR_NAME = "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
 

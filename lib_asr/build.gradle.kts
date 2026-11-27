@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.blue.sherpa.asr"
+    namespace = "com.blue.voice.asr"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

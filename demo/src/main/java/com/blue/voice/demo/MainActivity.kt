@@ -1,4 +1,4 @@
-package com.blue.sherpa.demo
+package com.blue.voice.demo
 
 import android.content.Intent
 import android.os.Bundle
@@ -14,14 +14,14 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.blue.sherpa.ui.theme.SherpaTheme
+import com.blue.voice.ui.theme.VoiceTheme
 
 /** Demo 入口：两个功能独立进入，避免 ASR 与 TTS 的模型加载互相拖慢。 */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SherpaTheme {
+            VoiceTheme {
                 val context = LocalContext.current
                 Scaffold { paddingValues ->
                     Column(

@@ -7,7 +7,7 @@
 用法：
     python tools/fetch_sherpa_asr.py              # 下载 + 按 manifest 校验（三类模型）
     python tools/fetch_sherpa_asr.py --push       # 再 push 到已连接设备
-    python tools/fetch_sherpa_asr.py --package com.blue.sherpa.demo
+    python tools/fetch_sherpa_asr.py --package com.blue.voice.demo
     python tools/fetch_sherpa_asr.py --verify-only
     python tools/fetch_sherpa_asr.py --tts-only   # 只要 TTS 模型
     python tools/fetch_sherpa_asr.py --no-kws     # 跳过 KWS
@@ -259,7 +259,7 @@ def push_group(model_dir: Path, files: tuple[str, ...], remote_name: str,
         print(f"[adb] 没有已连接的设备；模型已下载到 {model_dir}")
         return
     for device in devices:
-        for pkg in packages or ["com.blue.sherpa.demo"]:
+        for pkg in packages or ["com.blue.voice.demo"]:
             target = f"/sdcard/Android/data/{pkg}/files/sherpa/{remote_name}"
             print(f"[adb] {device}: {model_dir.name} -> {target}")
             adb("-s", device, "shell", "mkdir", "-p", target)
@@ -270,7 +270,7 @@ def push_group(model_dir: Path, files: tuple[str, ...], remote_name: str,
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--push", action="store_true", help="推送模型到已连接设备")
-    parser.add_argument("--package", action="append", help="目标包名，可重复；默认 com.blue.sherpa.demo")
+    parser.add_argument("--package", action="append", help="目标包名，可重复；默认 com.blue.voice.demo")
     parser.add_argument("--verify-only", action="store_true", help="只校验现有文件")
     parser.add_argument("--no-asr", action="store_true", help="跳过 ASR 主模型")
     parser.add_argument("--no-kws", action="store_true", help="跳过 KWS 唤醒词模型")

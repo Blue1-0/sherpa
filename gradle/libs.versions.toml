@@ -12,7 +12,7 @@ targetSdk = "34"
 coreKtx = "1.13.1"
 activityCompose = "1.8.0"
 sherpaOnnx = "2.0.1"
-libVersion = "1.0.0"
+libVersion = "2.0.0"
 
 [libraries]
 coreKtxLib = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
